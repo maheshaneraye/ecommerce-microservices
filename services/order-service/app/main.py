@@ -1,68 +1,120 @@
 from fastapi import FastAPI, Depends, HTTPException
-from sqlalchemy.orm import Session
-import models, database
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy import create_engine, Column, Integer
+from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from pydantic import BaseModel
+from jose import jwt, JWTError
 import httpx
 
-app = FastAPI()
+# ---------------- CONFIG ----------------
 
-models.Base.metadata.create_all(bind=database.engine)
+DATABASE_URL = "postgresql://postgres:postgres@postgres:5432/ecommerce"
 
-USER_SERVICE_URL = "http://localhost:8001"
-PRODUCT_SERVICE_URL = "http://localhost:8002"
+SECRET_KEY = "mysecretkey"
+ALGORITHM = "HS256"
 
+PRODUCT_SERVICE_URL = "http://product-service:8002"
 
-class OrderCreate(BaseModel):
+# ---------------- DB SETUP ----------------
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(bind=engine)
+Base = declarative_base()
+
+# ---------------- MODEL (DB) ----------------
+
+class OrderDB(Base):
+    __tablename__ = "orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer)
+    product_id = Column(Integer)
+    quantity = Column(Integer)
+
+Base.metadata.create_all(bind=engine)
+
+# ---------------- SCHEMA ----------------
+
+class Order(BaseModel):
     user_id: int
     product_id: int
     quantity: int
 
+# ---------------- APP ----------------
+
+app = FastAPI()
 
 def get_db():
-    db = database.SessionLocal()
+    db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
 
+# ---------------- SECURITY ----------------
+
+security = HTTPBearer()
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload["sub"]
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# ---------------- PRODUCT VALIDATION ----------------
+
+async def validate_product(product_id: int):
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{PRODUCT_SERVICE_URL}/products/{product_id}")
+        return response.status_code == 200
+
+# ---------------- ROUTES ----------------
 
 @app.get("/health")
 def health():
     return {"status": "order service running"}
 
-
 @app.post("/orders")
-async def create_order(order: OrderCreate, db: Session = Depends(get_db)):
+async def create_order(
+    order: Order,
+    current_user: str = Depends(verify_token),
+    db: Session = Depends(get_db)
+):
+    # Validate product
+    valid = await validate_product(order.product_id)
+    if not valid:
+        raise HTTPException(status_code=404, detail="Product not found")
 
-    async with httpx.AsyncClient() as client:
-
-        # Validate user
-        user_res = await client.get(
-            f"{USER_SERVICE_URL}/users/{order.user_id}"
-        )
-        if user_res.status_code != 200 or user_res.json() is None:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        # Validate product
-        product_res = await client.get(
-            f"{PRODUCT_SERVICE_URL}/products/{order.product_id}"
-        )
-        if product_res.status_code != 200:
-            raise HTTPException(status_code=404, detail="Product not found")
-
-    db_order = models.Order(
+    new_order = OrderDB(
         user_id=order.user_id,
         product_id=order.product_id,
         quantity=order.quantity
     )
 
-    db.add(db_order)
+    db.add(new_order)
     db.commit()
-    db.refresh(db_order)
+    db.refresh(new_order)
 
-    return db_order
-
+    return {
+        "message": "order created",
+        "order_id": new_order.id
+    }
 
 @app.get("/orders")
-def list_orders(db: Session = Depends(get_db)):
-    return db.query(models.Order).all()
+def list_orders(
+    current_user: str = Depends(verify_token),
+    db: Session = Depends(get_db)
+):
+    orders = db.query(OrderDB).all()
+
+    return [
+        {
+            "id": o.id,
+            "user_id": o.user_id,
+            "product_id": o.product_id,
+            "quantity": o.quantity
+        }
+        for o in orders
+    ]
