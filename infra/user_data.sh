@@ -1,21 +1,33 @@
 #!/bin/bash
 
-# Update system
-apt update -y
+exec > /var/log/user-data.log 2>&1
 
-# Install Docker
-apt install -y docker.io
+echo "===== STARTING SETUP ====="
+
+apt-get update -y
+
+apt-get install -y docker.io curl
+
 systemctl enable docker
 systemctl start docker
 
-# Install K3s (lightweight Kubernetes)
-curl -sfL https://get.k3s.io | sh -
+usermod -aG docker ubuntu
 
-# Fix kubeconfig permissions
-chmod 644 /etc/rancher/k3s/k3s.yaml
+echo "Docker installed"
 
-# Configure kubectl for ubuntu user
-echo "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" >> /home/ubuntu/.bashrc
+# Lightweight K3s
+curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable traefik --disable servicelb" sh -
 
-# Optional: install kubectl explicitly (safe fallback)
-apt install -y kubectl
+echo "K3s installed"
+
+# Create 2GB swap
+fallocate -l 2G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+echo "Swap enabled"
+
+echo "===== SETUP COMPLETE ====="

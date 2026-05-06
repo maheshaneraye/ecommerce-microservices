@@ -4,9 +4,8 @@ import models, database
 from pydantic import BaseModel
 
 app = FastAPI(
-    docs_url="/docs",
-    openapi_url="/openapi.json"
-        )  # ✅ no root_path
+    root_path="/products"
+        )
 
 
 models.Base.metadata.create_all(bind=database.engine)

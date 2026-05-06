@@ -1,14 +1,11 @@
-variable "region" {
-  description = "AWS region"
-  default     = "ap-south-1"
+variable "aws_region" {
+  default = "ap-south-1"
 }
 
-variable "project_name" {
-  description = "Project name for resource naming"
-  default     = "ecommerce-microservices"
+variable "instance_type" {
+  default = "t3.small"
 }
 
-variable "public_key_path" {
-  description = "Path to your public SSH key"
-  default     = "./ecommerce-microservices-key.pub"
+variable "ami_id" {
+  default = "ami-0f58b397bc5c1f2e8"
 }

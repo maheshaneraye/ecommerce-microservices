@@ -1,33 +1,23 @@
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
 provider "aws" {
-  region = var.region
+  region = var.aws_region
 }
 
-# Fetch latest Ubuntu 22.04 AMI dynamically
-data "aws_ami" "ubuntu" {
-  most_recent = true
+# -----------------------------
+# SECURITY GROUP
+# -----------------------------
 
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-
-  owners = ["099720109477"] # Canonical
-}
-
-# Key Pair
-resource "aws_key_pair" "deployer" {
-  key_name   = "${var.project_name}-key"
-  public_key = file(var.public_key_path)
-}
-
-# Security Group
 resource "aws_security_group" "k8s_sg" {
-  name = "${var.project_name}-sg"
+  name        = "ecommerce-microservices-sg"
+  description = "Security group for ecommerce microservices"
 
   ingress {
     description = "SSH"
@@ -46,15 +36,15 @@ resource "aws_security_group" "k8s_sg" {
   }
 
   ingress {
-    description = "HTTPS"
-    from_port   = 443
-    to_port     = 443
+    description = "API Gateway NodePort"
+    from_port   = 30008
+    to_port     = 30008
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
-    description = "Kubernetes API"
+    description = "K3s API"
     from_port   = 6443
     to_port     = 6443
     protocol    = "tcp"
@@ -77,22 +67,19 @@ resource "aws_security_group" "k8s_sg" {
   }
 }
 
-# EC2 Instance
+# -----------------------------
+# EC2 INSTANCE
+# -----------------------------
+
 resource "aws_instance" "k8s_server" {
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = "t3.micro"
-
-  key_name = aws_key_pair.deployer.key_name
-
+  ami                    = var.ami_id
+  instance_type          = var.instance_type
+  key_name               = "microservice"
   vpc_security_group_ids = [aws_security_group.k8s_sg.id]
 
-  user_data = file("${path.module}/user_data.sh")
-
-  root_block_device {
-    volume_size = 20
-  }
+  user_data = file("user_data.sh")
 
   tags = {
-    Name = "${var.project_name}-k8s-server"
+    Name = "ecommerce-microservices-k8s-server"
   }
 }
