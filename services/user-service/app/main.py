@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException 
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
@@ -44,7 +44,11 @@ class UserCreate(BaseModel):
     password: str
 
 
-app = FastAPI()
+# 🔥 IMPORTANT FIX HERE
+app = FastAPI(
+    root_path="/users"
+)
+
 
 def get_db():
     db = SessionLocal()
@@ -60,6 +64,7 @@ def create_access_token(data: dict):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
+
 def verify_token(token: str):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -69,6 +74,7 @@ def verify_token(token: str):
 
 
 security = HTTPBearer()
+
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
@@ -91,6 +97,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 
     return {"message": "User registered successfully"}
 
+
 @app.post("/login")
 def login(user: UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user.email).first()
@@ -101,6 +108,7 @@ def login(user: UserCreate, db: Session = Depends(get_db)):
     token = create_access_token({"sub": db_user.email})
 
     return {"access_token": token}
+
 
 @app.get("/users")
 def get_users(

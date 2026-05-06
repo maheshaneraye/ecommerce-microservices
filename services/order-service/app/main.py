@@ -42,7 +42,9 @@ class Order(BaseModel):
 
 # ---------------- APP ----------------
 
-app = FastAPI()
+app = FastAPI(
+        root_path="/orders"
+        )
 
 def get_db():
     db = SessionLocal()

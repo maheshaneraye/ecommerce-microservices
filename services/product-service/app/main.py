@@ -3,7 +3,11 @@ from sqlalchemy.orm import Session
 import models, database
 from pydantic import BaseModel
 
-app = FastAPI()
+app = FastAPI(
+    docs_url="/docs",
+    openapi_url="/openapi.json"
+        )  # ✅ no root_path
+
 
 models.Base.metadata.create_all(bind=database.engine)
 
@@ -26,7 +30,7 @@ def health():
     return {"status": "product service running"}
 
 
-@app.post("/products")
+@app.post("/")
 def create_product(product: ProductCreate, db: Session = Depends(get_db)):
     db_product = models.Product(name=product.name, price=product.price)
     db.add(db_product)
@@ -35,12 +39,12 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db)):
     return db_product
 
 
-@app.get("/products")
+@app.get("/")
 def list_products(db: Session = Depends(get_db)):
     return db.query(models.Product).all()
 
 
-@app.get("/products/{product_id}")
+@app.get("/{product_id}")
 def get_product(product_id: int, db: Session = Depends(get_db)):
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
 
