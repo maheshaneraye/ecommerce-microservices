@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from jose import jwt, JWTError
 import httpx
 
-# ---------------- CONFIG ----------------
+# CONFIG 
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
@@ -22,7 +22,7 @@ PRODUCT_SERVICE_URL = os.getenv(
     "http://product-service:8000"
 )
 
-# ---------------- DB SETUP ----------------
+# DB SETUP 
 
 engine = create_engine(DATABASE_URL)
 
@@ -34,7 +34,7 @@ SessionLocal = sessionmaker(
 
 Base = declarative_base()
 
-# ---------------- MODEL (DB) ----------------
+# MODEL (DB) 
 
 class OrderDB(Base):
     __tablename__ = "orders"
@@ -47,20 +47,20 @@ class OrderDB(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# ---------------- SCHEMA ----------------
+# SCHEMA 
 
 class Order(BaseModel):
     user_id: int
     product_id: int
     quantity: int
 
-# ---------------- APP ----------------
+# APP 
 
 app = FastAPI(
         root_path="/orders"
         )
 
-# ---------------- DB DEPENDENCY ----------------
+#  DB DEPENDENCY 
 
 def get_db():
     db = SessionLocal()
@@ -71,7 +71,7 @@ def get_db():
     finally:
         db.close()
 
-# ---------------- SECURITY ----------------
+# SECURITY 
 
 security = HTTPBearer()
 
@@ -96,7 +96,7 @@ def verify_token(
             detail="Invalid token"
         )
 
-# ---------------- PRODUCT VALIDATION ----------------
+# PRODUCT VALIDATION 
 
 async def validate_product(product_id: int):
     async with httpx.AsyncClient() as client:
@@ -106,7 +106,7 @@ async def validate_product(product_id: int):
 
         return response.status_code == 200
 
-# ---------------- ROUTES ----------------
+# ROUTES 
 
 @app.get("/health")
 def health():
