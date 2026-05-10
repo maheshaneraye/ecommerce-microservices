@@ -11,9 +11,9 @@ provider "aws" {
   region = var.aws_region
 }
 
-# -----------------------------
+
 # SECURITY GROUP
-# -----------------------------
+
 
 resource "aws_security_group" "k8s_sg" {
   name        = "ecommerce-microservices-sg"
@@ -67,9 +67,9 @@ resource "aws_security_group" "k8s_sg" {
   }
 }
 
-# -----------------------------
+
 # EC2 INSTANCE
-# -----------------------------
+
 
 resource "aws_instance" "k8s_server" {
   ami                    = var.ami_id
