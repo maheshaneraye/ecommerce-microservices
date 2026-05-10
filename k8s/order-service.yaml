@@ -30,6 +30,12 @@ spec:
         - name: PRODUCT_SERVICE_URL
           value: http://product-service:8000
 
+        - name: SECRET_KEY
+          valueFrom:
+           secretKeyRef:
+            name: ecommerce-secret
+            key: SECRET_KEY
+
         resources:
           requests:
             memory: "64Mi"

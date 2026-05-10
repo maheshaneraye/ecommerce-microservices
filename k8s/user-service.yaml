@@ -26,6 +26,11 @@ spec:
         env:
         - name: DATABASE_URL
           value: postgresql://postgres:postgres@postgres:5432/ecommerce
+        - name: SECRET_KEY
+          valueFrom:
+           secretKeyRef:
+            name: ecommerce-secret
+            key: SECRET_KEY
 
         resources:
           requests:
