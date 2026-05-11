@@ -11,70 +11,74 @@ jobs:
 
     steps:
 
-    
-    # Checkout Repository
-    
-    - name: Checkout Code
-      uses: actions/checkout@v4
+      # Checkout Repository
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    
-    # Docker Login
-    
-    - name: Login to Docker Hub
-      run: |
-        echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+      # Docker Login
+      - name: Login to Docker Hub
+        run: |
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-    
-    # Build Product Service
-    
-    - name: Build Product Service
-      run: |
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/product-service:latest ./services/product-service
+      # Build Product Service
+      - name: Build Product Service
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/product-service:latest ./services/product-service
 
-    - name: Push Product Service
-      run: |
-        docker push ${{ secrets.DOCKER_USERNAME }}/product-service:latest
+      - name: Push Product Service
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/product-service:latest
 
-    
-    # Build User Service
-    
-    - name: Build User Service
-      run: |
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/user-service:latest ./services/user-service
+      # Build User Service
+      - name: Build User Service
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/user-service:latest ./services/user-service
 
-    - name: Push User Service
-      run: |
-        docker push ${{ secrets.DOCKER_USERNAME }}/user-service:latest
+      - name: Push User Service
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/user-service:latest
 
-    
-    # Build Order Service
-    
-    - name: Build Order Service
-      run: |
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/order-service:latest ./services/order-service
+      # Build Order Service
+      - name: Build Order Service
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/order-service:latest ./services/order-service
 
-    - name: Push Order Service
-      run: |
-        docker push ${{ secrets.DOCKER_USERNAME }}/order-service:latest
+      - name: Push Order Service
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/order-service:latest
 
-    
-    # Setup SSH Key
-    
-    - name: Setup SSH
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
+      # Setup SSH Key
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
 
-    
-    # Deploy to Kubernetes
-    
-    - name: Restart Kubernetes Deployments
-      run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+      # Deploy to Kubernetes
+      - name: Deploy to Kubernetes
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
 
-        sudo kubectl rollout restart deployment product-service
-        sudo kubectl rollout restart deployment user-service
-        sudo kubectl rollout restart deployment order-service
+            # Restart deployments sequentially
+            sudo kubectl rollout restart deployment/user-service
+            sudo kubectl rollout status deployment/user-service
 
-        EOF
+            sudo kubectl rollout restart deployment/product-service
+            sudo kubectl rollout status deployment/product-service
+
+            sudo kubectl rollout restart deployment/order-service
+            sudo kubectl rollout status deployment/order-service
+
+            sudo kubectl rollout restart deployment/api-gateway
+            sudo kubectl rollout status deployment/api-gateway
+
+            # Cleanup completed pods
+            sudo kubectl delete pod --field-selector=status.phase=Succeeded || true
+
+            # Cleanup failed pods
+            sudo kubectl delete pod --field-selector=status.phase=Failed || true
+
+            # Cleanup unused container images
+            sudo k3s crictl rmi --prune || true
+
+          EOF
